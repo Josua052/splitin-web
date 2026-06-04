@@ -1,26 +1,506 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@theme inline {
+  --color-primary: #006D4E;
+  --color-primary-dark: #00563E;
+  --color-primary-light: #E6F1EE;
+  --color-background: #F9FAFB;
+  --color-surface: #FFFFFF;
+  --color-text-main: #111827;
+  --color-text-dimmed: #6B7280;
+  
+  --font-sans: var(--font-plus-jakarta), var(--font-geist-sans);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+:root {
+  --background: #F9FAFB;
+  --foreground: #111827;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #0A0A0A;
+    --foreground: #F9FAFB;
   }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+}
+
+/* Mantine overrides for custom colors if needed */
+.mantine-Button-root[data-variant="filled"] {
+  background-color: var(--color-primary);
+}
+
+.mantine-Button-root[data-variant="filled"]:hover {
+  background-color: var(--color-primary-dark);
+}
+@keyframes movingDash {
+  to {
+    background-position: 40px 0;
+  }
+}
+
+.animate-moving-dash {
+  background-image: linear-gradient(to right, #006D4E 50%, #f4f4f5 50%);
+  background-size: 20px 100%;
+  animation: movingDash 0.8s linear infinite;
+}
+
+.static-dash {
+    background-image: linear-gradient(to right, #006D4E 50%, #f4f4f5 50%);
+    background-size: 20px 100%;
+}
+
+.how-guide-steps {
+  --cursor-left: calc(100% - 58px);
+}
+
+.how-guide-step-card {
+  min-height: 136px;
+}
+
+.how-guide-step-card-active {
+  animation: howGuideStepPress 3.6s ease-in-out infinite;
+}
+
+.how-guide-cursor {
+  position: absolute;
+  left: var(--cursor-left);
+  z-index: 20;
+  width: 30px;
+  height: 34px;
+  pointer-events: none;
+  animation: howGuideCursorPress 3.6s ease-in-out both;
+  filter: drop-shadow(0 14px 18px rgb(0 0 0 / 0.2));
+}
+
+.how-guide-cursor::before {
+  content: "";
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: #006D4E;
+  clip-path: polygon(4% 0, 4% 88%, 31% 63%, 48% 100%, 65% 92%, 48% 57%, 88% 57%);
+}
+
+.how-guide-cursor::after {
+  content: "";
+  position: absolute;
+  left: 6px;
+  top: 5px;
+  width: 8px;
+  height: 13px;
+  border-left: 2px solid rgb(255 255 255 / 0.7);
+  transform: rotate(-12deg);
+}
+
+.how-guide-cursor-0 {
+  top: 42px;
+}
+
+.how-guide-cursor-1 {
+  top: 186px;
+}
+
+.how-guide-cursor-2 {
+  top: 330px;
+}
+
+.how-guide-cursor-3 {
+  top: 474px;
+}
+
+.how-guide-cursor-4 {
+  top: 618px;
+}
+
+@keyframes howGuideCursorPress {
+  0% {
+    opacity: 0;
+    transform: translate(38px, -22px) scale(0.92);
+  }
+
+  24% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1);
+  }
+
+  34% {
+    opacity: 1;
+    transform: translate(0, 0) scale(0.82);
+  }
+
+  44% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1);
+  }
+
+  82% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(18px, 12px) scale(0.94);
+  }
+}
+
+@keyframes howGuideStepPress {
+  0%,
+  20%,
+  50%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+
+  34% {
+    transform: translateY(1px) scale(0.985);
+  }
+}
+
+.split-demo-card {
+  isolation: isolate;
+}
+
+.split-demo-form {
+  animation: splitDemoForm 8s ease-in-out infinite;
+}
+
+.split-demo-cursor {
+  position: absolute;
+  z-index: 30;
+  width: 30px;
+  height: 34px;
+  pointer-events: none;
+  animation: splitDemoCursor 8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  filter: drop-shadow(0 12px 16px rgb(0 0 0 / 0.18));
+}
+
+.split-demo-cursor::before {
+  content: "";
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: #006D4E;
+  clip-path: polygon(4% 0, 4% 88%, 31% 63%, 48% 100%, 65% 92%, 48% 57%, 88% 57%);
+}
+
+.split-demo-cursor::after {
+  content: "";
+  position: absolute;
+  left: 6px;
+  top: 5px;
+  width: 8px;
+  height: 13px;
+  border-left: 2px solid rgb(255 255 255 / 0.7);
+  transform: rotate(-12deg);
+}
+
+.split-demo-type {
+  display: inline-block;
+  max-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  border-right: 2px solid #006D4E;
+}
+
+.split-demo-type-title {
+  animation: splitDemoTypeTitle 8s steps(11, end) infinite;
+}
+
+.split-demo-type-total {
+  animation: splitDemoTypeTotal 8s steps(10, end) infinite;
+}
+
+.split-demo-person {
+  opacity: 0.22;
+  transform: translateY(8px);
+}
+
+.split-demo-person-1 {
+  animation: splitDemoPersonOne 8s ease-in-out infinite;
+}
+
+.split-demo-person-2 {
+  animation: splitDemoPersonTwo 8s ease-in-out infinite;
+}
+
+.split-demo-person-3 {
+  animation: splitDemoPersonThree 8s ease-in-out infinite;
+}
+
+.split-demo-person-4 {
+  animation: splitDemoPersonFour 8s ease-in-out infinite;
+}
+
+.split-demo-share-btn {
+  animation: splitDemoShareButton 8s ease-in-out infinite;
+}
+
+.split-demo-result {
+  opacity: 0;
+  transform: translateY(18px) scale(0.98);
+  animation: splitDemoResult 8s ease-in-out infinite;
+}
+
+@keyframes splitDemoCursor {
+  0%,
+  5% {
+    left: 54%;
+    top: 18%;
+    opacity: 0;
+    transform: scale(0.95);
+  }
+
+  9%,
+  24% {
+    left: 54%;
+    top: 18%;
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  34%,
+  43% {
+    left: 72%;
+    top: 42%;
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  51% {
+    left: 50%;
+    top: 79%;
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  55% {
+    left: 50%;
+    top: 79%;
+    opacity: 1;
+    transform: scale(0.86);
+  }
+
+  60% {
+    left: 50%;
+    top: 79%;
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  70%,
+  88% {
+    left: 72%;
+    top: 58%;
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  96%,
+  100% {
+    left: 72%;
+    top: 58%;
+    opacity: 0;
+    transform: scale(0.95);
+  }
+}
+
+@keyframes splitDemoTypeTitle {
+  0%,
+  7% {
+    max-width: 0;
+    border-color: #006D4E;
+  }
+
+  18%,
+  92% {
+    max-width: 8rem;
+    border-color: transparent;
+  }
+
+  100% {
+    max-width: 0;
+    border-color: transparent;
+  }
+}
+
+@keyframes splitDemoTypeTotal {
+  0%,
+  11% {
+    max-width: 0;
+    border-color: #006D4E;
+  }
+
+  26%,
+  92% {
+    max-width: 8rem;
+    border-color: transparent;
+  }
+
+  100% {
+    max-width: 0;
+    border-color: transparent;
+  }
+}
+
+@keyframes splitDemoPersonOne {
+  0%,
+  24%,
+  100% {
+    opacity: 0.22;
+    transform: translateY(8px);
+  }
+
+  31%,
+  92% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes splitDemoPersonTwo {
+  0%,
+  29%,
+  100% {
+    opacity: 0.22;
+    transform: translateY(8px);
+  }
+
+  36%,
+  92% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes splitDemoPersonThree {
+  0%,
+  34%,
+  100% {
+    opacity: 0.22;
+    transform: translateY(8px);
+  }
+
+  41%,
+  92% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes splitDemoPersonFour {
+  0%,
+  39%,
+  100% {
+    opacity: 0.22;
+    transform: translateY(8px);
+  }
+
+  46%,
+  92% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes splitDemoShareButton {
+  0%,
+  49%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 10px 24px rgb(0 109 78 / 0.18);
+  }
+
+  54% {
+    transform: scale(0.98);
+    box-shadow: 0 4px 12px rgb(0 109 78 / 0.18);
+  }
+
+  61%,
+  88% {
+    transform: scale(1);
+    box-shadow: 0 16px 34px rgb(0 109 78 / 0.24);
+  }
+}
+
+@keyframes splitDemoForm {
+  0%,
+  58%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  68%,
+  90% {
+    opacity: 0.24;
+    transform: scale(0.98);
+  }
+}
+
+@keyframes splitDemoResult {
+  0%,
+  58%,
+  100% {
+    opacity: 0;
+    transform: translateY(18px) scale(0.98);
+  }
+
+  68%,
+  90% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .split-demo-form,
+  .split-demo-type-title,
+  .split-demo-type-total,
+  .split-demo-person-1,
+  .split-demo-person-2,
+  .split-demo-person-3,
+  .split-demo-person-4,
+  .split-demo-share-btn,
+  .split-demo-result {
+    animation: none;
+  }
+
+  .split-demo-cursor {
+    display: none;
+  }
+
+  .split-demo-type {
+    max-width: none;
+    border-right: 0;
+  }
+
+  .split-demo-person {
+    opacity: 1;
+    transform: none;
+  }
+
+  .split-demo-form {
+    opacity: 0.24;
+  }
+
+  .split-demo-result {
+    opacity: 1;
+    transform: none;
+  }
+
+  .how-guide-cursor,
+  .how-guide-step-card-active {
+    animation: none;
+  }
+
+  .how-guide-cursor {
+    display: none;
+  }
 }
