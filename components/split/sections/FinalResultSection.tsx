@@ -19,7 +19,11 @@ import {
   IconDownload,
   IconShare,
 } from "@tabler/icons-react";
-import { formatRupiah, getItemTotal } from "../receiptParser";
+import {
+  formatRupiah,
+  getItemDiscountAmount,
+  getItemTotal,
+} from "../receiptParser";
 import { calculateSplits, ParticipantSplit } from "../splitCalculator";
 import {
   BillData,
@@ -300,8 +304,12 @@ function createShareText(
 
   const itemLines = bill.items
     .map(
-      (item) =>
-        `- ${item.name} x${item.quantity}: ${formatRupiah(getItemTotal(item))}`
+      (item) => {
+        const discount = getItemDiscountAmount(item);
+        const discountText = discount ? ` (diskon ${formatRupiah(discount)})` : "";
+
+        return `- ${item.name} x${item.quantity}: ${formatRupiah(getItemTotal(item))}${discountText}`;
+      }
     )
     .join("\n");
 

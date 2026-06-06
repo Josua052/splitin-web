@@ -3,12 +3,15 @@ export interface BillItem {
   name: string;
   quantity: number;
   price: number;
+  discountType: "amount" | "percent";
+  discountValue: number;
 }
 
 export interface BillData {
   title: string;
   items: BillItem[];
   subtotal: number;
+  taxType: "percent" | "amount";
   taxRate: number;
   tax: number;
   service: number;
@@ -33,6 +36,7 @@ export function createEmptyBill(): BillData {
     title: "Tagihan Baru",
     items: [],
     subtotal: 0,
+    taxType: "percent",
     taxRate: 0,
     tax: 0,
     service: 0,

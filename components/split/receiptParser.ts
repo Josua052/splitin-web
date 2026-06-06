@@ -35,7 +35,22 @@ export function formatRupiah(value: number) {
 }
 
 export function getItemTotal(item: BillItem) {
+  return Math.max(0, getItemGrossTotal(item) - getItemDiscountAmount(item));
+}
+
+export function getItemGrossTotal(item: BillItem) {
   return Math.max(0, item.quantity) * Math.max(0, item.price);
+}
+
+export function getItemDiscountAmount(item: BillItem) {
+  const grossTotal = getItemGrossTotal(item);
+  const discountValue = Math.max(0, item.discountValue || 0);
+
+  if (item.discountType === "percent") {
+    return Math.min(grossTotal, Math.round((grossTotal * discountValue) / 100));
+  }
+
+  return Math.min(grossTotal, Math.round(discountValue));
 }
 
 export function calculateSubtotal(items: BillItem[]) {
@@ -44,11 +59,16 @@ export function calculateSubtotal(items: BillItem[]) {
 
 export function calculateBillTotals(
   items: BillItem[],
+  taxType: "percent" | "amount",
   taxRate: number,
   service: number
 ) {
   const subtotal = calculateSubtotal(items);
-  const tax = Math.round((subtotal * Math.max(0, taxRate)) / 100);
+  const normalizedTaxValue = Math.max(0, taxRate);
+  const tax =
+    taxType === "amount"
+      ? Math.round(normalizedTaxValue)
+      : Math.round((subtotal * normalizedTaxValue) / 100);
   const normalizedService = Math.max(0, Math.round(service));
 
   return {
@@ -109,6 +129,8 @@ export function parseReceiptText(text: string, imagePreview: string | null): Bil
       name,
       quantity: extractQuantity(line),
       price: amount,
+      discountType: "amount",
+      discountValue: 0,
     });
   }
 
@@ -120,12 +142,13 @@ export function parseReceiptText(text: string, imagePreview: string | null): Bil
   }
 
   const taxRate = subtotal && detectedTax ? roundToTwo((detectedTax / subtotal) * 100) : 0;
-  const totals = calculateBillTotals(items, taxRate, detectedService);
+  const totals = calculateBillTotals(items, "amount", detectedTax, detectedService);
 
   return {
     title: detectReceiptTitle(lines),
     items,
-    taxRate,
+    taxType: detectedTax ? "amount" : "percent",
+    taxRate: detectedTax || taxRate,
     ...totals,
     rawText: text.trim(),
     imagePreview,
@@ -138,6 +161,8 @@ export function createManualItem(name = "Item Baru", price = 0): BillItem {
     name,
     quantity: 1,
     price,
+    discountType: "amount",
+    discountValue: 0,
   };
 }
 
