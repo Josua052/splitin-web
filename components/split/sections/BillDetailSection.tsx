@@ -56,8 +56,6 @@ interface DraftItem {
 interface OcrResult {
   text: string;
   lines: string[];
-  engine: "paddle" | "native" | "local";
-  paddleError?: string;
 }
 
 interface BillDetailSectionProps {
@@ -118,12 +116,6 @@ export function BillDetailSection({
       if (!selectableLines.length) {
         setScanError(
           "Struk berhasil dibaca, tapi teksnya belum jelas. Coba foto lebih terang atau masukkan item manual."
-        );
-      } else if (ocrResult.engine !== "paddle") {
-        setScanError(
-          ocrResult.paddleError
-            ? `PaddleOCR belum dipakai: ${ocrResult.paddleError} Hasil scan memakai OCR lokal.`
-            : "PaddleOCR belum tersedia, jadi hasil scan memakai OCR lokal. Restart dev server setelah mengubah .env atau install PaddleOCR di Python environment."
         );
       }
 
@@ -1113,27 +1105,6 @@ async function recognizeReceipt(
   file: File,
   onProgress: (progress: number) => void
 ): Promise<OcrResult> {
-  onProgress(8);
-  const paddleResult = await recognizeWithPaddleOcr(file);
-
-  if (paddleResult.result && isReadablePaddleOcrText(paddleResult.result.text)) {
-    onProgress(100);
-    return paddleResult.result;
-  }
-
-  onProgress(12);
-  const nativeText = await recognizeWithNativeTextDetector(file);
-
-  if (isUsableReceiptOcrText(nativeText)) {
-    onProgress(100);
-    return {
-      text: nativeText,
-      lines: extractSelectableLines(nativeText),
-      engine: "native",
-      paddleError: paddleResult.error,
-    };
-  }
-
   onProgress(18);
   const lightImage = await preprocessReceiptImage(file, "light");
   const softImage = await preprocessReceiptImage(file, "soft");
@@ -1171,8 +1142,6 @@ async function recognizeReceipt(
       return {
         text: lightText,
         lines: extractSelectableLines(lightText),
-        engine: "local",
-        paddleError: paddleResult.error,
       };
     }
 
@@ -1186,8 +1155,6 @@ async function recognizeReceipt(
       return {
         text: softText,
         lines: extractSelectableLines(softText),
-        engine: "local",
-        paddleError: paddleResult.error,
       };
     }
 
@@ -1207,8 +1174,6 @@ async function recognizeReceipt(
       return {
         text: adaptiveText,
         lines: extractSelectableLines(adaptiveText),
-        engine: "local",
-        paddleError: paddleResult.error,
       };
     }
 
@@ -1230,8 +1195,6 @@ async function recognizeReceipt(
       return {
         text: binaryText,
         lines: extractSelectableLines(binaryText),
-        engine: "local",
-        paddleError: paddleResult.error,
       };
     }
 
@@ -1251,8 +1214,6 @@ async function recognizeReceipt(
       return {
         text: invertedText,
         lines: extractSelectableLines(invertedText),
-        engine: "local",
-        paddleError: paddleResult.error,
       };
     }
 
@@ -1268,7 +1229,6 @@ async function recognizeReceipt(
     });
     const fallbackText = extractStructuredOcrText(fallbackResult.data);
     const bestText = pickBestOcrText([
-      nativeText,
       lightText,
       softText,
       adaptiveText,
@@ -1280,74 +1240,9 @@ async function recognizeReceipt(
     return {
       text: bestText,
       lines: extractSelectableLines(bestText),
-      engine: "local",
-      paddleError: paddleResult.error,
     };
   } finally {
     await worker.terminate();
-  }
-}
-
-async function recognizeWithPaddleOcr(file: File): Promise<{
-  result: OcrResult | null;
-  error?: string;
-}> {
-  try {
-    const formData = new FormData();
-    formData.append("image", file);
-
-    const response = await fetch("/api/ocr", {
-      method: "POST",
-      body: formData,
-    });
-
-    if (!response.ok) {
-      const payload = (await response.json().catch(() => null)) as {
-        error?: unknown;
-      } | null;
-      return {
-        result: null,
-        error:
-          typeof payload?.error === "string"
-            ? payload.error
-            : `Route OCR gagal dengan status ${response.status}.`,
-      };
-    }
-
-    const payload = (await response.json()) as {
-      text?: unknown;
-      lines?: unknown;
-      error?: unknown;
-    };
-    const error = typeof payload.error === "string" ? payload.error : undefined;
-    const text = typeof payload.text === "string" ? payload.text : "";
-    const lines = Array.isArray(payload.lines)
-      ? payload.lines
-          .filter((line): line is string => typeof line === "string")
-          .map((line) => normalizeOcrLine(line))
-          .filter((line) => line.length >= 2)
-      : extractSelectableLines(text);
-
-    if (!text && !lines.length) {
-      return {
-        result: null,
-        error: error || "PaddleOCR tidak mengembalikan teks dari gambar.",
-      };
-    }
-
-    return {
-      result: {
-        text: text || lines.join("\n"),
-        lines: lines.length ? lines : extractSelectableLines(text),
-        engine: "paddle",
-      },
-      error,
-    };
-  } catch {
-    return {
-      result: null,
-      error: "Route OCR tidak bisa dihubungi. Pastikan dev server sudah restart.",
-    };
   }
 }
 
@@ -1399,16 +1294,6 @@ function isUsableReceiptOcrText(text: string) {
   const wordLikeCount = lines.filter((line) => /[a-zA-Z]{3,}/.test(line)).length;
 
   return lines.length >= 5 && amountLikeCount >= 2 && wordLikeCount >= 2;
-}
-
-function isReadablePaddleOcrText(text: string) {
-  const lines = extractSelectableLines(text);
-  const amountLikeCount = lines.filter((line) =>
-    /\d{1,3}(?:[.,]\d{3})+|\d{4,9}/.test(line)
-  ).length;
-  const wordLikeCount = lines.filter((line) => /[a-zA-Z]{3,}/.test(line)).length;
-
-  return lines.length >= 2 && amountLikeCount >= 1 && wordLikeCount >= 1;
 }
 
 function pickBestOcrText(texts: string[]) {
@@ -1601,30 +1486,4 @@ function getHistogramPercentile(
   }
 
   return histogram.length - 1;
-}
-
-async function recognizeWithNativeTextDetector(file: File) {
-  const maybeWindow = window as typeof window & {
-    TextDetector?: new () => {
-      detect: (image: ImageBitmap) => Promise<Array<{ rawValue?: string }>>;
-    };
-  };
-
-  if (!maybeWindow.TextDetector || !("createImageBitmap" in window)) {
-    return "";
-  }
-
-  try {
-    const image = await createImageBitmap(file);
-    const detector = new maybeWindow.TextDetector();
-    const detections = await detector.detect(image);
-    image.close();
-
-    return detections
-      .map((detection) => detection.rawValue)
-      .filter(Boolean)
-      .join("\n");
-  } catch {
-    return "";
-  }
 }

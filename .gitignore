@@ -16,8 +16,6 @@
 # next.js
 /.next/
 /out/
-/.paddle-cache/
-/.paddlex-cache/
 
 # production
 /build
