@@ -58,6 +58,13 @@ interface OcrResult {
   lines: string[];
 }
 
+interface ScanResult {
+  lines: string[];
+  preview: string;
+  text: string;
+  title: string;
+}
+
 interface BillDetailSectionProps {
   bill: BillData;
   onBillChange: (bill: BillData) => void;
@@ -87,15 +94,20 @@ export function BillDetailSection({
   const [selectedTextByRole, setSelectedTextByRole] = useState<
     Partial<Record<ScanRole, string>>
   >({});
+  const [scanResults, setScanResults] = useState<ScanResult[]>([]);
 
   const canContinue = bill.items.length > 0 && bill.total > 0;
   const canAddDraftItem = draftItem.name.trim().length > 0 && draftItem.price > 0;
+  const activeScan = scanResults.find(
+    (scan) => scan.preview === bill.imagePreview
+  );
+  const visibleOcrLines = activeScan?.lines || ocrLines;
 
   const handleImageChange = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
+    const files = Array.from(event.target.files || []);
     event.target.value = "";
 
-    if (!file) {
+    if (!files.length) {
       return;
     }
 
@@ -103,47 +115,85 @@ export function BillDetailSection({
     setIsScanning(true);
     setScanProgress(5);
 
-    const imagePreview = URL.createObjectURL(file);
+    const successfulScans: ScanResult[] = [];
+    let failedScans = 0;
+
+    for (const [index, file] of files.entries()) {
+      const imagePreview = URL.createObjectURL(file);
+
+      try {
+        const ocrResult = await recognizeReceipt(file, (progress) =>
+          setScanProgress(
+            Math.min(99, Math.round(((index + progress / 100) / files.length) * 100))
+          )
+        );
+        const text = ocrResult.text;
+        const parsedBill = parseReceiptText(text, imagePreview);
+        const selectableLines = ocrResult.lines.length
+          ? ocrResult.lines
+          : extractSelectableLines(text);
+
+        successfulScans.push({
+          lines: selectableLines,
+          preview: imagePreview,
+          text,
+          title: parsedBill.title,
+        });
+      } catch (error) {
+        console.error(error);
+        URL.revokeObjectURL(imagePreview);
+        failedScans += 1;
+      }
+    }
 
     try {
-      const ocrResult = await recognizeReceipt(file, setScanProgress);
-      const text = ocrResult.text;
-      const parsedBill = parseReceiptText(text, imagePreview);
-      const selectableLines = ocrResult.lines.length
-        ? ocrResult.lines
-        : extractSelectableLines(text);
+      if (!successfulScans.length) {
+        throw new Error("No receipt images could be read.");
+      }
 
-      if (!selectableLines.length) {
+      const nextText = [bill.rawText, ...successfulScans.map((scan) => scan.text)]
+        .filter(Boolean)
+        .join("\n");
+      const nextPreview = successfulScans[successfulScans.length - 1].preview;
+      const nextVisibleLines = successfulScans[successfulScans.length - 1].lines;
+      const totals = calculateBillTotals(
+        bill.items,
+        bill.taxType ?? "percent",
+        bill.taxRate,
+        bill.service
+      );
+
+      if (!nextVisibleLines.length) {
         setScanError(
-          "Struk berhasil dibaca, tapi teksnya belum jelas. Coba foto lebih terang atau masukkan item manual."
+          "Struk berhasil dibaca, tapi teksnya belum jelas. Coba foto lebih terang atau pilih item manual."
+        );
+      } else if (failedScans) {
+        setScanError(
+          `${successfulScans.length} gambar berhasil dibaca, ${failedScans} gambar gagal. Item dan harga yang sudah masuk tetap disimpan.`
         );
       }
 
-      setOcrLines(selectableLines);
-      setDraftItem({
-        name: "",
-        price: 0,
-        quantity: 1,
-        discountType: "amount",
-        discountValue: 0,
-      });
+      setOcrLines(nextVisibleLines);
+      setScanResults((current) => [
+        ...current,
+        ...successfulScans,
+      ]);
       setSelectedTextByRole({});
       onBillChange({
-        ...parsedBill,
-        items: [],
-        subtotal: 0,
-        taxType: "percent",
-        taxRate: 0,
-        tax: 0,
-        service: 0,
-        total: 0,
+        ...bill,
+        title:
+          bill.title === "Tagihan Baru"
+            ? successfulScans[0].title
+            : bill.title,
+        rawText: nextText.trim(),
+        imagePreview: nextPreview,
+        ...totals,
       });
       setMode("manual");
     } catch (error) {
       console.error(error);
-      URL.revokeObjectURL(imagePreview);
       setScanError(
-        "Scan struk gagal. Pastikan gambar jelas, lalu coba lagi atau masukkan item manual."
+        "Scan struk gagal. Pastikan gambar jelas, lalu coba lagi atau masukkan item manual. Item yang sudah masuk tetap disimpan."
       );
     } finally {
       setScanProgress(100);
@@ -338,6 +388,23 @@ export function BillDetailSection({
           </Box>
         </Stack>
 
+        <input
+          ref={cameraInputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          hidden
+          onChange={handleImageChange}
+        />
+        <input
+          ref={galleryInputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          hidden
+          onChange={handleImageChange}
+        />
+
         {mode === "scan" && (
           <Paper
             p={{ base: 28, sm: 60 }}
@@ -356,22 +423,6 @@ export function BillDetailSection({
               <Text size="sm" c="dimmed" className="mb-8 font-medium max-w-xs mx-auto text-center w-full">
                 Foto struk yang terang dan lurus akan membuat harga lebih mudah terbaca.
               </Text>
-
-              <input
-                ref={cameraInputRef}
-                type="file"
-                accept="image/*"
-                capture="environment"
-                hidden
-                onChange={handleImageChange}
-              />
-              <input
-                ref={galleryInputRef}
-                type="file"
-                accept="image/*"
-                hidden
-                onChange={handleImageChange}
-              />
 
               <Group gap="md" justify="center" className="w-full">
                 <Button
@@ -427,9 +478,37 @@ export function BillDetailSection({
                     Pilih role, lalu tap teks OCR yang sesuai. Setelah barang dan harga terisi, ceklis untuk masuk ke daftar item.
                   </Text>
                 </Stack>
-                <Badge color="emerald" variant="light" radius="md" className="px-3 py-2 font-bold">
-                  {ocrLines.length} teks
-                </Badge>
+                <Stack gap="xs" align="flex-end">
+                  <Badge color="emerald" variant="light" radius="md" className="px-3 py-2 font-bold">
+                    {visibleOcrLines.length} teks
+                  </Badge>
+                  <Group gap="xs" justify="flex-end">
+                    <Button
+                      size="xs"
+                      radius="xl"
+                      variant="light"
+                      color="emerald"
+                      leftSection={<IconCamera size={14} />}
+                      disabled={isScanning}
+                      onClick={() => cameraInputRef.current?.click()}
+                      className="font-bold"
+                    >
+                      Tambah Foto
+                    </Button>
+                    <Button
+                      size="xs"
+                      radius="xl"
+                      variant="outline"
+                      color="gray"
+                      leftSection={<IconPhoto size={14} />}
+                      disabled={isScanning}
+                      onClick={() => galleryInputRef.current?.click()}
+                      className="font-bold"
+                    >
+                      Tambah Galeri
+                    </Button>
+                  </Group>
+                </Stack>
               </Group>
 
               <Box className="grid grid-cols-1 gap-5 md:grid-cols-[0.85fr_1.15fr]">
@@ -440,6 +519,41 @@ export function BillDetailSection({
                     radius={0}
                     className="max-h-[420px] w-full object-contain"
                   />
+                  {scanResults.length > 1 && (
+                    <Group gap="xs" className="border-t border-zinc-100 bg-white p-3" wrap="nowrap">
+                      {scanResults.map((scan, index) => {
+                        const isActive = bill.imagePreview === scan.preview;
+
+                        return (
+                          <button
+                            key={`${scan.preview}-${index}`}
+                            type="button"
+                            onClick={() => {
+                              setOcrLines(scan.lines);
+                              setSelectedTextByRole({});
+                              onBillChange({
+                                ...bill,
+                                imagePreview: scan.preview,
+                              });
+                            }}
+                            className={`h-12 w-12 shrink-0 overflow-hidden rounded-xl border transition ${
+                              isActive
+                                ? "border-emerald-400 ring-2 ring-emerald-100"
+                                : "border-zinc-200 hover:border-emerald-200"
+                            }`}
+                            aria-label={`Lihat gambar struk ${index + 1}`}
+                          >
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={scan.preview}
+                              alt=""
+                              className="h-full w-full object-cover"
+                            />
+                          </button>
+                        );
+                      })}
+                    </Group>
+                  )}
                 </Box>
 
                 <Stack gap="md">
@@ -461,9 +575,9 @@ export function BillDetailSection({
                   />
 
                   <Box className="max-h-[260px] overflow-y-auto rounded-3xl border border-zinc-100 bg-zinc-50 p-3">
-                    {ocrLines.length ? (
+                    {visibleOcrLines.length ? (
                       <Group gap="xs">
-                        {ocrLines.map((line, index) => {
+                        {visibleOcrLines.map((line, index) => {
                           const isSelected = Object.values(selectedTextByRole).includes(line);
 
                           return (
