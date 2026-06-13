@@ -370,14 +370,29 @@ async function createReceiptImage({
 }) {
   const width = 900;
   const padding = 56;
+  let expectedHeight = 448;
+
+  if (bill.items.length) {
+    expectedHeight += 104;
+    bill.items.forEach((item) => {
+      expectedHeight += 29;
+      if (getItemDiscountAmount(item)) {
+        expectedHeight += 23;
+      }
+    });
+  }
+
+  expectedHeight += 102;
+
   const participantBlockHeights = splits.map((split) => {
     const itemCount = Math.min(split.items.length, 8);
-    return 136 + itemCount * 28 + (split.items.length > itemCount ? 26 : 0);
+    return 156 + itemCount * 28 + (split.items.length > 8 ? 23 : 0);
   });
-  const height =
-    520 +
-    bill.items.length * 30 +
-    participantBlockHeights.reduce((sum, value) => sum + value, 0);
+
+  expectedHeight += participantBlockHeights.reduce((sum, value) => sum + value, 0);
+  expectedHeight += 150;
+
+  const height = expectedHeight;
   const scale = Math.max(2, window.devicePixelRatio || 1);
   const canvas = document.createElement("canvas");
   canvas.width = width * scale;
